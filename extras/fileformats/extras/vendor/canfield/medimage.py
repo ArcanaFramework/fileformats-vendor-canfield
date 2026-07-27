@@ -7,7 +7,7 @@ from fileformats.vendor.canfield.medimage.export import VectraExport
 
 
 @extra_implementation(MedicalImagingData.deidentify)
-def deidentify_export_dir(
+def deidentify_vectra_export(
     export_dir: VectraExport,
     spec: ty.Any = None,
     out_dir: os.PathLike[str] | None = None,
