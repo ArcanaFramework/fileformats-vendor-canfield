@@ -7,7 +7,7 @@ from .lesion import LesionAnalysisDir, T2k
 from .three_d import ThreeDCaptureDir
 
 
-class ExportDir(Directory, MedicalImagingData):
+class VectraExport(Directory, MedicalImagingData):
     """Canfield data export directory: a session/patient-level export
     containing some combination of whole-body 3D captures, hand-held
     single-lesion captures and their Vectra/Dexi lesion analyses. The three

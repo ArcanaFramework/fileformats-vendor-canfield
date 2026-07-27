@@ -3,15 +3,15 @@ import typing as ty
 from fileformats.core import extra_implementation
 from fileformats.medimage.base import MedicalImagingData
 
-from fileformats.vendor.canfield.medimage.export import ExportDir
+from fileformats.vendor.canfield.medimage.export import VectraExport
 
 
 @extra_implementation(MedicalImagingData.deidentify)
 def deidentify_export_dir(
-    export_dir: ExportDir,
+    export_dir: VectraExport,
     spec: ty.Any = None,
     out_dir: os.PathLike[str] | None = None,
-) -> tuple[ExportDir, ty.Mapping[str, ty.Any]]:
+) -> tuple[VectraExport, ty.Mapping[str, ty.Any]]:
     """
     Deidentifies the image by stripping any subject-identifying information from the
     image header. The exact implementation of this method will depend on the
