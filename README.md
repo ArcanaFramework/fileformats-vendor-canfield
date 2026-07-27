@@ -3,7 +3,6 @@
 [![CI/CD](https://github.com/arcanaframework/fileformats-vendor-canfield/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/arcanaframework/fileformats-vendor-canfield/actions/workflows/ci-cd.yml)
 [![Codecov](https://codecov.io/gh/arcanaframework/fileformats-vendor-canfield/branch/main/graph/badge.svg?token=UIS0OGPST7)](https://codecov.io/gh/arcanaframework/fileformats-vendor-canfield)
 ![Static Badge](https://img.shields.io/badge/type%20checked-mypy-039dfc)
-[![Python Versions](https://img.shields.io/pypi/pyversions/fileformats-vendor-canfield.svg)](https://pypi.python.org/pypi/fileformats-vendor-canfield/)
 [![Latest Version](https://img.shields.io/pypi/v/fileformats-vendor-canfield.svg)](https://pypi.python.org/pypi/fileformats-vendor-canfield/)
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://arcanaframework.github.io/fileformats-vendor-canfield/)
 
