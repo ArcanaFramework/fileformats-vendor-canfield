@@ -11,7 +11,8 @@ def deidentify_vectra_export(
     export_dir: VectraExport,
     spec: ty.Any = None,
     out_dir: os.PathLike[str] | None = None,
-) -> tuple[VectraExport, ty.Mapping[str, ty.Any]]:
+    **kwargs: ty.Any,
+) -> VectraExport:
     """
     Deidentifies the image by stripping any subject-identifying information from the
     image header. The exact implementation of this method will depend on the
@@ -32,9 +33,8 @@ def deidentify_vectra_export(
 
     Returns
     -------
-    tuple[ExportDir, Mapping[str, Any]]
-        A tuple containing the deidentified ExportDir object and a mapping of
-        any relevant metadata or information about the deidentification process.
+    VectraExport
+        The deidentified ExportDir object.
     """
     # Implement the deidentification logic here, based on the specific format and requirements.
     # This is a placeholder implementation and should be replaced with actual logic.
