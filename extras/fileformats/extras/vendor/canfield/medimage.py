@@ -1,5 +1,6 @@
 import os
 import typing as ty
+
 from fileformats.core import extra_implementation
 from fileformats.medimage.base import MedicalImagingData
 
@@ -9,8 +10,8 @@ from fileformats.vendor.canfield.medimage.export import VectraExport
 @extra_implementation(MedicalImagingData.deidentify)
 def deidentify_vectra_export(
     export_dir: VectraExport,
+    out_dir: os.PathLike[str],
     spec: ty.Any = None,
-    out_dir: os.PathLike[str] | None = None,
     **kwargs: ty.Any,
 ) -> VectraExport:
     """
@@ -22,14 +23,13 @@ def deidentify_vectra_export(
 
     Parameters
     ----------
+    out_dir: PathLike
+        The directory where the deidentified files should be written.
     spec: Any, optional
         A specification for the deidentification process, which may include details on
         which fields to remove or how to handle certain types of data. The exact
         structure of this specification will depend on the specific image format and the
         type of identifying information that is present.
-    out_dir: PathLike, optional
-        The directory where the deidentified files should be written. If not provided,
-        a default location will be used.
 
     Returns
     -------
