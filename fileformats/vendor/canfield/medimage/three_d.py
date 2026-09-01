@@ -1,7 +1,7 @@
+from fileformats.application import Json
 from fileformats.core import validated_property
 from fileformats.core.exceptions import FormatMismatchError
 from fileformats.generic import BinaryFile, Directory, File, UnicodeFile
-from fileformats.application import Json
 from fileformats.image import Cr2, Png
 from fileformats.medimage import MedicalImagingData
 
@@ -25,6 +25,12 @@ class Cptr(BinaryFile, MedicalImagingData):
     for a single 3D capture."""
 
     ext = ".cptr"
+
+
+class TomSeedLog(UnicodeFile, MedicalImagingData):
+    """Canfield log file recording the tom-seed process for a single 3D capture."""
+
+    ext = ".tom-seed.log"
 
 
 class CalibDir(Directory, MedicalImagingData):
@@ -66,13 +72,15 @@ class TrackedDir(Directory, MedicalImagingData):
         return Tom(matches[0])
 
     @validated_property
-    def seed_log_file(self) -> UnicodeFile:
+    def seed_log_file(self) -> TomSeedLog:
+        """Canfield log file recording the tom-seed process for a single 3D capture."""
+
         matches = list(self.fspath.glob("*.tom-seed.log"))
         if not matches:
             raise FormatMismatchError(
                 f"Did not find a *.tom-seed.log file in {self.fspath}"
             )
-        return UnicodeFile(matches[0])
+        return TomSeedLog(matches[0])
 
     @validated_property
     def tracking_log_file(self) -> UnicodeFile:
