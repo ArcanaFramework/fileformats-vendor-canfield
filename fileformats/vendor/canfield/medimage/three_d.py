@@ -33,6 +33,12 @@ class TomSeedLog(UnicodeFile, MedicalImagingData):
     ext = ".tom-seed.log"
 
 
+class TomTrackLog(UnicodeFile, MedicalImagingData):
+    """Canfield log file recording the tom-track process for a single 3D capture."""
+
+    ext = ".tom-track.log"
+
+
 class CalibDir(Directory, MedicalImagingData):
     """Per-capture geometric calibration data for all of the stereo pod
     cameras."""
@@ -81,6 +87,17 @@ class TrackedDir(Directory, MedicalImagingData):
                 f"Did not find a *.tom-seed.log file in {self.fspath}"
             )
         return TomSeedLog(matches[0])
+
+    @validated_property
+    def track_log_file(self) -> TomTrackLog:
+        """Canfield log file recording the tom-track process for a single 3D capture."""
+
+        matches = list(self.fspath.glob("*.tom-track.log"))
+        if not matches:
+            raise FormatMismatchError(
+                f"Did not find a *.tom-track.log file in {self.fspath}"
+            )
+        return TomTrackLog(matches[0])
 
     @validated_property
     def tracking_log_file(self) -> UnicodeFile:
@@ -212,3 +229,7 @@ class Vectra3dCapture(Directory, MedicalImagingData):
         reconstruction (per-pod stereo logs, calibration tweaks, mesh
         gluing/texturing, etc.)."""
         return [UnicodeFile(p) for p in self.fspath.glob("*log*.txt")]
+
+    @validated_property
+    def sglue_log_file(self) -> UnicodeFile:
+        return UnicodeFile(self.fspath / "sglue-log.txt")
