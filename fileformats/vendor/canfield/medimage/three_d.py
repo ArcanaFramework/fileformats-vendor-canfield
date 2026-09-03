@@ -113,7 +113,7 @@ class TrackedDir(Directory, MedicalImagingData):
         return [File(p) for p in self.fspath.glob("TRACKING_*")]
 
 
-class AnalysisDir(Directory, MedicalImagingData):
+class WholeBodyAnalysisDir(Directory, MedicalImagingData):
     """Downstream lesion-detection/analysis pipeline output run over the
     whole-body capture, versioned by the analysis software release."""
 
@@ -196,8 +196,8 @@ class Vectra3dCapture(Directory, MedicalImagingData):
         return CalibDir(self.fspath / "calib")
 
     @validated_property
-    def analysis_dir(self) -> AnalysisDir:
-        return AnalysisDir(self.fspath / "analysis")
+    def analysis_dir(self) -> WholeBodyAnalysisDir:
+        return WholeBodyAnalysisDir(self.fspath / "analysis")
 
     @validated_property
     def tracked_dirs(self) -> dict[str, TrackedDir]:
