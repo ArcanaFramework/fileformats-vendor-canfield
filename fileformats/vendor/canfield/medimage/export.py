@@ -5,7 +5,7 @@ from fileformats.application import Pdf
 from fileformats.medimage import MedicalImagingData
 
 from .lesion import LesionAnalysisDir, T2k
-from .three_d import Vectra3dCapture
+from .whole_body import WholeBodyCapture
 
 
 class VectraExport(Directory, MedicalImagingData):
@@ -34,13 +34,13 @@ class VectraExport(Directory, MedicalImagingData):
         return {p.stem: T2k(p) for p in self.fspath.glob("*.t2k")}
 
     @property
-    def whole_body_capture_dirs(self) -> dict[str, Vectra3dCapture]:
+    def whole_body_capture_dirs(self) -> dict[str, WholeBodyCapture]:
         """Whole-body 3D stereo-photogrammetry captures, keyed by capture
         timestamp."""
         return {
-            p.name: Vectra3dCapture(p)
+            p.name: WholeBodyCapture(p)
             for p in self.fspath.iterdir()
-            if p.is_dir() and Vectra3dCapture.matches(p)
+            if p.is_dir() and WholeBodyCapture.matches(p)
         }
 
     @property

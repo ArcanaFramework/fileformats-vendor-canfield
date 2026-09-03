@@ -1,14 +1,21 @@
 from .export import VectraExport
-from .lesion import LesionAnalysisDir, DexiDataDir, T2k
-from .three_d import TomSeedLog, TomTrackLog, TrackedDir, Vectra3dCapture
+from .lesion import DexiDataDir, LesionAnalysisDir, T2k
+from .whole_body import (
+    TomSeedLog,
+    TomTrackLog,
+    TrackedDir,
+    WholeBodyAnalysisDir,
+    WholeBodyCapture,
+)
 
 __all__ = [
-    "LesionAnalysisDir",
     "DexiDataDir",
+    "LesionAnalysisDir",
     "T2k",
-    "Vectra3dCapture",
-    "TrackedDir",
     "TomSeedLog",
     "TomTrackLog",
+    "TrackedDir",
     "VectraExport",
+    "WholeBodyAnalysisDir",
+    "WholeBodyCapture",
 ]

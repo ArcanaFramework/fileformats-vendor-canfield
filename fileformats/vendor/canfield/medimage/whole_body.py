@@ -149,7 +149,7 @@ class WholeBodyAnalysisDir(Directory, MedicalImagingData):
         return File(matches[0])
 
 
-class Vectra3dCapture(Directory, MedicalImagingData):
+class WholeBodyCapture(Directory, MedicalImagingData):
     """Canfield Vectra whole-body 3D stereo-photogrammetry capture: the raw
     multi-pod camera images plus the reconstructed mesh and downstream lesion
     analysis for a single body scan."""
