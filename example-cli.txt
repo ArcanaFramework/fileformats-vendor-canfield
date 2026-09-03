@@ -1,0 +1,58 @@
+CLI:
+
+xnat-ingest group \
+    <input-dir> \
+    <output-dir> \
+    --recursive \
+    --datatype image/png \
+    --datatype image/jpeg \
+    --session '{SubjectID}_{CaptureDate:%Y%m%d}' all \
+    --scan LesionID all \
+    --resource CaptureDevice all \
+    --on-resource-clash merge \
+    --path-metadata-regex '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg))' all \
+    --metadata-table <path-to-csv> fileset ImagePath='=HYPERLINK("{image_path}")'
+
+
+ENV vars (Kubernetes container spec):
+    command: ["xnat-ingest"]
+    args: ["group"]
+    env:
+      - name: XINGEST_INPUT_PATHS
+        value: "<input-dir>"
+      - name: XINGEST_OUTPUT_DIR
+        value: "<output-dir>"
+      - name: XINGEST_RECURSIVE
+        value: true
+      - name: XINGEST_DATATYPES
+        value: "image/png;image/jpeg"                 # ';' separates multiple values
+      - name: XINGEST_SESSION
+        value: '{SubjectID}_{CaptureDate:%Y%m%d} all'
+      - name: XINGEST_SCAN
+        value: "LesionID all"
+      - name: XINGEST_RESOURCE
+        value: "CaptureDevice all"
+      - name: XINGEST_ON_RESOURCE_CLASH
+        value: "merge"
+      - name: XINGEST_PATH_METADATA_REGEX
+        value: '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg)) all'
+      - name: XINGEST_METADATA_TABLES
+        value: '<path-to-csv> fileset ImagePath==HYPERLINK("{image_path}")'
+
+
+Notes:
+  - XINGEST_SESSION must be quoted: a YAML scalar starting with '{' is otherwise
+    parsed as a flow mapping.
+  - XINGEST_PATH_METADATA_REGEX: single-quote it so backslashes stay literal
+    (a double-quoted YAML scalar would need '\\w', '\\.').
+  - XINGEST_METADATA_TABLES: the '==' is literal. On the CLI the shell concatenates
+    ImagePath= + '=HYPERLINK(...)'; in an env var there is no shell, so write the
+    double '='. The parser splits the join expr on the first '=' (column='ImagePath',
+    value='=HYPERLINK("{image_path}")').
+  - Multiple values are ';'-separated. Within one value the fields are
+    space-separated and only the LAST field may contain spaces, so the regex and
+    the CSV path must be space-free (use '\s' in the regex if it must match a space).
+  - The regex matches exactly one directory level above the file and '(?:png|jpg)'
+    will not match '.jpeg' — a non-matching path is a hard error, not a skip.
+  - '... all' is the datatype slot of --path-metadata-regex (any FileSet); the two
+    tokens are still required.

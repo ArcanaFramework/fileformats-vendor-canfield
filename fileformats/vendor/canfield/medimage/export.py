@@ -5,7 +5,7 @@ from fileformats.application import Pdf
 from fileformats.medimage import MedicalImagingData
 
 from .lesion import LesionAnalysisDir, T2k
-from .three_d import Vectra3dCapture
+from .whole_body import WholeBodyCapture
 
 
 class VectraExport(Directory, MedicalImagingData):
@@ -18,7 +18,9 @@ class VectraExport(Directory, MedicalImagingData):
     @validated_property
     def has_content(self) -> bool:
         if not (
-            self.t2k_files or self.three_d_capture_dirs or self.lesion_analysis_dirs
+            self.t2k_files
+            and self.whole_body_capture_dirs
+            and self.lesion_analysis_dirs
         ):
             raise FormatMismatchError(
                 "Did not find any T2k files or ThreeDCaptureDir/LesionAnalysisDir "
@@ -32,13 +34,13 @@ class VectraExport(Directory, MedicalImagingData):
         return {p.stem: T2k(p) for p in self.fspath.glob("*.t2k")}
 
     @property
-    def three_d_capture_dirs(self) -> dict[str, Vectra3dCapture]:
+    def whole_body_capture_dirs(self) -> dict[str, WholeBodyCapture]:
         """Whole-body 3D stereo-photogrammetry captures, keyed by capture
         timestamp."""
         return {
-            p.name: Vectra3dCapture(p)
+            p.name: WholeBodyCapture(p)
             for p in self.fspath.iterdir()
-            if p.is_dir() and Vectra3dCapture.matches(p)
+            if p.is_dir() and WholeBodyCapture.matches(p)
         }
 
     @property

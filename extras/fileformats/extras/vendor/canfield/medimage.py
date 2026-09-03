@@ -14,7 +14,7 @@ from fileformats.vendor.canfield.medimage import (
     TomTrackLog,
     TrackedDir,
     DexiDataDir,
-    Vectra3dCapture,
+    WholeBodyCapture,
     VectraExport,
     LesionAnalysisDir,
 )
@@ -57,8 +57,8 @@ def vectra_deidentify(
     if not in_place:
         export_dir = export_dir.copy(dest_dir=Path(out_dir))
 
-    for three_d_capture_dir in export_dir.three_d_capture_dirs.values():
-        three_d_capture_dir.deidentify(in_place=True, spec=spec, **kwargs)
+    for whole_body_capture_dir in export_dir.whole_body_capture_dirs.values():
+        whole_body_capture_dir.deidentify(in_place=True, spec=spec, **kwargs)
 
     for lesion_analysis_dir in export_dir.lesion_analysis_dirs.values():
         lesion_analysis_dir.deidentify(in_place=True, spec=spec, **kwargs)
@@ -71,12 +71,12 @@ def vectra_deidentify(
 
 @extra_implementation(MedicalImagingData.deidentify)
 def vectra_3d_capture_deidentify(
-    capture_dir: Vectra3dCapture,
+    capture_dir: WholeBodyCapture,
     out_dir: os.PathLike[str],
     spec: ty.Any = None,
     in_place: bool = False,
     **kwargs: ty.Any,
-) -> Vectra3dCapture:
+) -> WholeBodyCapture:
     if not in_place:
         capture_dir = capture_dir.copy(dest_dir=Path(out_dir))
 
