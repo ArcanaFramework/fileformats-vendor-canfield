@@ -1,6 +1,7 @@
 from fileformats.core import validated_property
 from fileformats.core.exceptions import FormatMismatchError
 from fileformats.generic import Directory
+from fileformats.application import Pdf
 from fileformats.medimage import MedicalImagingData
 
 from .lesion import LesionAnalysisDir, T2k
@@ -48,3 +49,8 @@ class VectraExport(Directory, MedicalImagingData):
             for p in self.fspath.iterdir()
             if p.is_dir() and LesionAnalysisDir.matches(p)
         }
+
+    @property
+    def dermx_reports(self) -> list[Pdf]:
+        """DermX PDF reports"""
+        return [Pdf(p) for p in self.fspath.glob("DermX Report*.pdf")]
