@@ -1,0 +1,17 @@
+CLI:
+
+xnat-ingest group \
+    <input-dir> \
+    <output-dir> \
+    --recursive \
+    --datatype image/png \
+    --datatype image/jpeg \
+    --session '{SubjectID}_{CaptureDate:%Y%m%d}' all \
+    --scan LesionID all \
+    --resource CaptureDevice all \
+    --on-resource-clash merge \
+    --path-metadata-regex '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg))' all \
+    --metadata-table <path-to-csv> fileset ImagePath='=HYPERLINK("{image_path}")'
+
+
+ENV vars:
