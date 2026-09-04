@@ -6,12 +6,12 @@ xnat-ingest group \
     --recursive \
     --datatype image/png \
     --datatype image/jpeg \
-    --session '{SubjectID}_{CaptureDate:%Y%m%d}' all \
-    --scan LesionID all \
-    --resource CaptureDevice all \
+    --session '{subject_uid}_{CaptureDate:%Y%m%d}' all \
+    --scan 'dermoscopy-{LesionID}' 'image/png|image/jpeg' \
+    --resource CaptureDevice 'image/png|image/jpeg' \
     --on-resource-clash merge \
-    --path-metadata-regex '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg))' all \
-    --metadata-table <path-to-csv> fileset ImagePath='=HYPERLINK("{image_path}")'
+    --path-metadata-regex '.*/(?P<subject_uid>[\w-]+)/(?P<filename>[\w-]+\.(?:png|jpg))' all \
+    --metadata-table <path-to-csv> 'fileset[image/png|image/jpeg]' ImagePath='=HYPERLINK("{subject_uid}/{filename}")'
 
 
 ENV vars (Kubernetes container spec):
@@ -56,3 +56,32 @@ Notes:
     will not match '.jpeg' — a non-matching path is a hard error, not a skip.
   - '... all' is the datatype slot of --path-metadata-regex (any FileSet); the two
     tokens are still required.
+
+
+Dexi and Whole Body Lesion Analysis CLI:
+
+xnat-ingest group <vectra-tree> <out> \
+  --recursive \
+  --datatype medimage/vnd.canfield.whole-body-analysis-dir \
+  --datatype medimage/vnd.canfield.dexi-data-dir \
+  --ignore-path '.*' \
+  --path-metadata-regex '.*/(?P<subject_uid>[\w\-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/analysis' medimage/vnd.canfield.whole-body-analysis-dir \
+  --path-metadata-regex '.*/(?P<subject_uid>[\w\-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/DexiData.*' medimage/vnd.canfield.dexi-data-dir \
+  --session '{subject_uid}_{CaptureDate:%Y%m%d}' all \
+  --scan 'dexi-{CaptureTime}' medimage/vnd.canfield.dexi-data-dir \
+  --scan 'all-lesion-analysis-{CaptureTime}' medimage/vnd.canfield.whole-body-analysis-dir
+
+
+Whole Body (internal) CLI:
+
+```
+xnat-ingest group \
+    <input-dir> \
+    <output-dir> \
+    --datatype medimage/vnd.canfield.vectra-export \
+    --datatype application/vnd.sqlite3 \
+    --session session_uid all \
+    --path-metadata-regex '.*/(?P<session_uid>[\w-]+)' medimage/vnd.canfield.vectra-export \
+    --path-metadata-regex '.*/(?P<SubjectID>[^\/_]+)_(?P<session_uid>[\w-]+)' application/vnd.sqlite3 \
+    --convert medimage/vnd.canfield.vectra-export medimage/vnd.canfield.vectra-export+zip
+```
