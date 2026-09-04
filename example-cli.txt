@@ -1,58 +1,269 @@
-CLI:
-
-xnat-ingest group \
-    <input-dir> \
-    <output-dir> \
-    --recursive \
-    --datatype image/png \
-    --datatype image/jpeg \
-    --session '{SubjectID}_{CaptureDate:%Y%m%d}' all \
-    --scan LesionID all \
-    --resource CaptureDevice all \
-    --on-resource-clash merge \
-    --path-metadata-regex '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg))' all \
-    --metadata-table <path-to-csv> fileset ImagePath='=HYPERLINK("{image_path}")'
+## Lesion Ingest (dermoscopy + dexi + WB analysis)
 
 
-ENV vars (Kubernetes container spec):
-    command: ["xnat-ingest"]
-    args: ["group"]
-    env:
-      - name: XINGEST_INPUT_PATHS
-        value: "<input-dir>"
-      - name: XINGEST_OUTPUT_DIR
-        value: "<output-dir>"
-      - name: XINGEST_RECURSIVE
-        value: true
-      - name: XINGEST_DATATYPES
-        value: "image/png;image/jpeg"                 # ';' separates multiple values
-      - name: XINGEST_SESSION
-        value: '{SubjectID}_{CaptureDate:%Y%m%d} all'
-      - name: XINGEST_SCAN
-        value: "LesionID all"
-      - name: XINGEST_RESOURCE
-        value: "CaptureDevice all"
-      - name: XINGEST_ON_RESOURCE_CLASH
-        value: "merge"
-      - name: XINGEST_PATH_METADATA_REGEX
-        value: '.*/(?P<image_path>[\w-]+/[\w-]+\.(?:png|jpg)) all'
-      - name: XINGEST_METADATA_TABLES
-        value: '<path-to-csv> fileset ImagePath==HYPERLINK("{image_path}")'
+### CLI
+
+First run a group command to extract the required directories from the vectra export dir and group together the PNGs from the
+same lesion dermoscopy
+
+```bash
+xnat-ingest group <input-dir> <grouped-dir> \
+  --recursive \
+  --datatype image/png \
+  --datatype image/jpeg \
+  --datatype medimage/vnd.canfield.whole-body-analysis-dir \
+  --datatype medimage/vnd.canfield.dexi-data-dir \
+  --exclude-path '*/*/*.png' \
+  --exclude-path '*/*/*.jpg' \
+  --allow-unrecognised '.*' \
+  --session '{subject_uid}_{CaptureDate:%Y%m%d}' all \
+  --scan 'dermoscopy-{LesionID}' 'image/png|image/jpeg' \
+  --scan 'dexi-{CaptureTime}' medimage/vnd.canfield.dexi-data-dir \
+  --scan 'analysis-{CaptureTime}' medimage/vnd.canfield.whole-body-analysis-dir \
+  --resource CaptureDevice 'image/png|image/jpeg' \
+  --on-resource-clash merge 'image/png|image/jpeg' \
+  --path-metadata-regex '.*/(?P<subject_uid>[\w-]+)/(?P<filename>[\w-]+\.(?:png|jpe?g))' 'image/png|image/jpeg' \
+  --path-metadata-regex '.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/analysis' medimage/vnd.canfield.whole-body-analysis-dir \
+  --path-metadata-regex '.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/DexiData.*' medimage/vnd.canfield.dexi-data-dir \
+  --metadata-table <path-to-csv> 'fileset[image/png|image/jpeg]' ImagePath='=HYPERLINK("{subject_uid}/{filename}")'
+```
+
+Next assign the session to a project/subject/session
+
+```bash
+xnat-ingest assign <grouped-dir> <assigned-dir> \
+  --subject SubjectID \
+  --session '{SubjectID}_{CaptureDate:%Y%m%d}' \
+  --constant-project-id ACEMID
+```
+
+then run deidentification (not sure if this is necessary, maybe the parts we are uploading don't need it)
+
+```bash
+xnat-ingest deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
+```
+
+finally upload to XNAT
+
+```bash
+xnat-ingest upload <deid-dir> <xnat-server-url> \
+  --user <xnat-user> \
+  --password <xnat-password>
+```
+
+### K8s spec
+
+One container per stage (each an ``xnat-ingest`` sub-command). Every positional arg
+and option has an env var, so ``command`` is always ``["xnat-ingest"]`` and ``args``
+is just the sub-command name.
+
+```yaml
+# ---- stage 1: group -------------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["group"]
+env:
+  - name: XINGEST_INPUT_PATHS
+    value: "<input-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<grouped-dir>"
+  - name: XINGEST_RECURSIVE
+    value: "true"
+  - name: XINGEST_DATATYPES                 # ';'-separated
+    value: "image/png;image/jpeg;medimage/vnd.canfield.whole-body-analysis-dir;medimage/vnd.canfield.dexi-data-dir"
+  - name: XINGEST_EXCLUDE_PATH              # ';'-separated
+    value: "*/*/*.png;*/*/*.jpg"
+  - name: XINGEST_ALLOW_UNRECOGNISED
+    value: ".*"
+  - name: XINGEST_SESSION
+    value: '{subject_uid}_{CaptureDate:%Y%m%d} all'
+  - name: XINGEST_SCAN                      # ';' between entries, space between the 2 fields
+    value: 'dermoscopy-{LesionID} image/png|image/jpeg;dexi-{CaptureTime} medimage/vnd.canfield.dexi-data-dir;analysis-{CaptureTime} medimage/vnd.canfield.whole-body-analysis-dir'
+  - name: XINGEST_RESOURCE
+    value: "CaptureDevice image/png|image/jpeg"
+  - name: XINGEST_ON_RESOURCE_CLASH         # <policy> <scope>
+    value: "merge image/png|image/jpeg"
+  - name: XINGEST_PATH_METADATA_REGEX       # ';' between entries, each '<regex> <datatype>'
+    value: '.*/(?P<subject_uid>[\w-]+)/(?P<filename>[\w-]+\.(?:png|jpe?g)) image/png|image/jpeg;.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/analysis medimage/vnd.canfield.whole-body-analysis-dir;.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/DexiData.* medimage/vnd.canfield.dexi-data-dir'
+  - name: XINGEST_METADATA_TABLES           # '<path> <row-freq> <join-exprs>'
+    value: '<path-to-csv> fileset[image/png|image/jpeg] ImagePath==HYPERLINK("{subject_uid}/{filename}")'
+
+# ---- stage 2: assign ----------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["assign"]
+env:
+  - name: XINGEST_INPUT_DIR                 # NB: assign uses XINGEST_INPUT_DIR, not _PATHS
+    value: "<grouped-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<assigned-dir>"
+  - name: XINGEST_CONSTANT_PROJECT_ID
+    value: "ACEMID"
+  - name: XINGEST_SUBJECT
+    value: "SubjectID"
+  - name: XINGEST_SESSION
+    value: '{SubjectID}_{CaptureDate:%Y%m%d}'
+
+# ---- stage 3: deidentify (skip if the uploaded parts carry no PHI) ------------
+command: ["xnat-ingest"]
+args: ["deidentify"]
+env:
+  - name: XINGEST_INPUT_DIR
+    value: "<assigned-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<deid-dir>"
+  - name: XINGEST_SPEC_DIR                  # deidentify needs a spec dir
+    value: "<spec-dir>"
+  - name: XINGEST_REID_DIR                  # optional: drop this to discard the reid mapping
+    value: "<reid-dir>"
+
+# ---- stage 4: upload --------------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["upload"]
+env:
+  - name: XINGEST_STAGED
+    value: "<deid-dir>"                     # or <assigned-dir> if stage 3 is skipped
+  - name: XINGEST_HOST
+    value: "<xnat-server-url>"
+  - name: XINGEST_USER
+    valueFrom: { secretKeyRef: { name: xnat-creds, key: user } }
+  - name: XINGEST_PASS
+    valueFrom: { secretKeyRef: { name: xnat-creds, key: password } }
+```
 
 
-Notes:
-  - XINGEST_SESSION must be quoted: a YAML scalar starting with '{' is otherwise
-    parsed as a flow mapping.
+#### Notes
+  - XINGEST_SESSION / XINGEST_SCAN must be quoted: a YAML scalar starting with '{' is
+    otherwise parsed as a flow mapping.
   - XINGEST_PATH_METADATA_REGEX: single-quote it so backslashes stay literal
-    (a double-quoted YAML scalar would need '\\w', '\\.').
+    (a double-quoted YAML scalar would need '\\w', '\\d').
   - XINGEST_METADATA_TABLES: the '==' is literal. On the CLI the shell concatenates
     ImagePath= + '=HYPERLINK(...)'; in an env var there is no shell, so write the
     double '='. The parser splits the join expr on the first '=' (column='ImagePath',
-    value='=HYPERLINK("{image_path}")').
-  - Multiple values are ';'-separated. Within one value the fields are
-    space-separated and only the LAST field may contain spaces, so the regex and
-    the CSV path must be space-free (use '\s' in the regex if it must match a space).
-  - The regex matches exactly one directory level above the file and '(?:png|jpg)'
-    will not match '.jpeg' — a non-matching path is a hard error, not a skip.
-  - '... all' is the datatype slot of --path-metadata-regex (any FileSet); the two
-    tokens are still required.
+    value='=HYPERLINK("{subject_uid}/{filename}")').
+  - Every list-valued env var (SESSION, SCAN, PATH_METADATA_REGEX, METADATA_TABLES,
+    ON_RESOURCE_CLASH, DATATYPES, EXCLUDE_PATH, ALLOW_UNRECOGNISED) is ';'-separated
+    between entries. For the multi-field composites (SESSION, SCAN, ...) the fields
+    within one entry are space-separated and only the LAST field may contain spaces,
+    so the regexes and CSV path must be space-free (use '\s' in a regex if it must
+    match a space). EXCLUDE_PATH / ALLOW_UNRECOGNISED are single-field, so a value
+    there (e.g. a glob over a path with a space) may contain spaces.
+  - '--exclude-path' matches the path *relative to <input-dir>*: dermoscopy PNGs are
+    2 segments deep ('<subject>/<file>.png'), the Canfield thumbnails 3
+    ('<uuid>/<timestamp>/XP.png'); if <input-dir> sits a level higher, bump the
+    globs. '--allow-unrecognised .*' then silently drops all the other vendor files.
+  - A '--path-metadata-regex' miss (a fileset of the scoped datatype whose path
+    doesn't match) is a hard error, not a skip — keep each pattern narrow.
+  - This whole stage-1 command needs the '--allow-unrecognised'/'--exclude-path'
+    split and datatype-scoped '--on-resource-clash' (branch
+    'allow-unrecognised-exclude-path'; not on main yet).
+
+
+## Whole Body (internal) CLI:
+
+```bash
+xnat-ingest group \
+    <input-dir> \
+    <output-dir> \
+    --datatype medimage/vnd.canfield.vectra-export \
+    --datatype application/vnd.sqlite3 \
+    --session session_uid all \
+    --path-metadata-regex '.*/(?P<session_uid>[\w-]+)' medimage/vnd.canfield.vectra-export \
+    --path-metadata-regex '.*/(?P<SubjectID>[^\/_]+)_(?P<session_uid>[\w-]+)' application/vnd.sqlite3 \
+    --convert medimage/vnd.canfield.vectra-export medimage/vnd.canfield.vectra-export+zip
+```
+
+```bash
+xnat-ingest assign <grouped-dir> <assigned-dir> \
+  --subject SubjectID \
+  --session session_uid \
+  --constant-project-id ACEMID-Internal
+```
+
+then run deidentification
+
+```bash
+xnat-ingest deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
+```
+
+finally upload to XNAT
+
+```bash
+xnat-ingest upload <deid-dir> <xnat-server-url> \
+  --user <xnat-user> \
+  --password <xnat-password>
+```
+
+### K8s spec
+
+```yaml
+# ---- stage 1: group (whole export dir + sidecar .db, zipped for archive) ------
+command: ["xnat-ingest"]
+args: ["group"]
+env:
+  - name: XINGEST_INPUT_PATHS
+    value: "<input-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<grouped-dir>"
+  # no XINGEST_RECURSIVE - the whole export dir is one resource, don't walk in
+  - name: XINGEST_DATATYPES
+    value: "medimage/vnd.canfield.vectra-export;application/vnd.sqlite3"
+  - name: XINGEST_SESSION
+    value: "session_uid all"
+  - name: XINGEST_PATH_METADATA_REGEX
+    value: '.*/(?P<session_uid>[\w-]+) medimage/vnd.canfield.vectra-export;.*/(?P<SubjectID>[^/_]+)_(?P<session_uid>[\w-]+) application/vnd.sqlite3'
+  - name: XINGEST_CONVERT                   # <src> <tgt>
+    value: "medimage/vnd.canfield.vectra-export medimage/vnd.canfield.vectra-export+zip"
+
+# ---- stage 2: assign --------------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["assign"]
+env:
+  - name: XINGEST_INPUT_DIR
+    value: "<grouped-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<assigned-dir>"
+  - name: XINGEST_CONSTANT_PROJECT_ID
+    value: "ACEMID-Internal"
+  - name: XINGEST_SUBJECT
+    value: "SubjectID"
+  - name: XINGEST_SESSION
+    value: "session_uid"
+
+# ---- stage 3: deidentify --------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["deidentify"]
+env:
+  - name: XINGEST_INPUT_DIR
+    value: "<assigned-dir>"
+  - name: XINGEST_OUTPUT_DIR
+    value: "<deid-dir>"
+  - name: XINGEST_SPEC_DIR
+    value: "<spec-dir>"
+  - name: XINGEST_REID_DIR                  # optional: drop this to discard the reid mapping
+    value: "<reid-dir>"
+
+# ---- stage 4: upload -----------------------------------------------------------
+command: ["xnat-ingest"]
+args: ["upload"]
+env:
+  - name: XINGEST_STAGED
+    value: "<deid-dir>"
+  - name: XINGEST_HOST
+    value: "<xnat-server-url>"
+  - name: XINGEST_USER
+    valueFrom: { secretKeyRef: { name: xnat-internal-creds, key: user } }
+  - name: XINGEST_PASS
+    valueFrom: { secretKeyRef: { name: xnat-internal-creds, key: password } }
+```
+
+#### Notes
+  - Runs on ``main`` as-is (no new flags needed). ``--scan``/``--resource`` are
+    omitted: nothing DICOM-scoped matches, so each resource is named after its type
+    (``vectra-export`` / ``sqlite3-db``) and the scan takes the same name.
+  - ``deidentify`` needs the extra positional ``spec_dir`` (``XINGEST_SPEC_DIR``);
+    ``--reid-dir`` / ``XINGEST_REID_DIR`` is optional — omit it to discard the
+    re-identification mapping rather than write it to disk.
+  - ``--convert`` needs the ``vectra-export -> …+zip`` converter loaded at runtime
+    (from ``fileformats-extras``); confirm the image has it and that the first run
+    produces a ``.zip``.
+  - ``VectraExport`` validation is strict (needs a ``.t2k`` file plus whole-body and
+    lesion-analysis subdirs) — a real export that doesn't satisfy it aborts the run.
