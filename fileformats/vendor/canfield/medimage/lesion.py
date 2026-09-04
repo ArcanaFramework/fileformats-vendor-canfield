@@ -112,7 +112,7 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
         """Dictionary of dexi directories sorted by their version."""
         dct = {
             p.name.split("_")[1]: DexiDataDir(p)
-            for p in self.fspath.glob("DexiData_*")
+            for p in self.fspath.glob("DexiData*")
             if p.is_dir()
         }
         if not dct:
