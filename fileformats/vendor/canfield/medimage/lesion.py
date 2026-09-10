@@ -1,8 +1,8 @@
 import typing as ty
 
-from fileformats.core import mtime_cached_property, validated_property
+from fileformats.core import from_mime, mtime_cached_property, validated_property
 from fileformats.core.exceptions import FormatMismatchError
-from fileformats.generic import Directory, UnicodeFile, BinaryFile
+from fileformats.generic import Directory, UnicodeFile, BinaryFile, FileSet
 from fileformats.application import Json, Xml
 from fileformats.image import Jpeg, Svg___Xml, Png
 from fileformats.medimage import MedicalImagingData
@@ -44,20 +44,24 @@ class DexiDataDir(Directory, MedicalImagingData):
     # these properties into
     # a single validated property called 'output_files' or something
 
-    @validated_property
-    def heatmap_file(self) -> Jpeg:
-        """The heatmap file in the directory."""
-        return Jpeg(
-            self.fspath / self.result_dict["OutputFiles"]["HeatMap"]
-        )  # FIXME: I don't have the exact path for this
-
-    @validated_property
-    def lesion_file(self) -> Svg___Xml:
-        """The lesion file in the directory."""
-        return Svg___Xml(
-            self.fspath / self.result_dict["OutputFiles"]["Lesion"]
-        )  # FIXME: I don't have the exact path for this
-
+@validated_property
+def output_images(self) -> dict[str, dict[FileSet]]:
+    output_images = {}
+    for alg in self.result_dict["Algorithms"]:
+        alg_out = output_images[alg["AlgorithmName"]] = {}
+        for img in alg["OutputImages"]:
+            mime_type = img["ContentType"]
+            if "mime_type" == "jpg":
+                mime_type = "image/jpeg"
+            elif "/" not in mime_type:
+                mime_type = f"image/{mime_type}"
+            datatype = from_mime(mime_type)
+            alg_out[img["Name"]] = datatype(img["ImageLocation"])
+    if not output_images:
+        raise FormatMismatchError(
+            f"No output images found in analysis dir results.json:\n{self.results_dict}"
+        )
+    return output_images
 
 class DanaosDir(Directory, MedicalImagingData):
     """Canfield Danaos image data directory
@@ -102,7 +106,7 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
         """The capture info file in the directory."""
         return UnicodeFile(self.fspath / "captureinfo_scope")
 
-    @validated_property
+    @property
     def danaos_dir(self) -> DanaosDir:
         """The danaos directory in the directory."""
         return DanaosDir(self.fspath / "DANAOS")
